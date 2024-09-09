@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: iftop-exporter
+  name: iftop-exporter
+spec:
+  ports:
+  - name: helper-metrics
+    port: {{ .Values.helper.proxy.port }}
+    protocol: TCP
+    targetPort: {{ .Values.helper.proxy.port }}
+  - name: exporter-metrics
+    port: {{ .Values.exporter.port }}
+    protocol: TCP
+    targetPort: {{ .Values.exporter.port }}
+  selector:
+    control-plane: iftop-exporter

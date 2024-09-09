@@ -1,0 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: iftop-exporter-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: iftop-exporter-role
+subjects:
+- kind: ServiceAccount
+  name: iftop-exporter
+  namespace: {{ template "iftop-exporter.namespace" . }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: iftop-exporter-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: iftop-exporter-proxy-role
+subjects:
+- kind: ServiceAccount
+  name: iftop-exporter
+  namespace: {{ template "iftop-exporter.namespace" . }}

@@ -1,0 +1,25 @@
+dynamicDir: /var/lib/iftop-exporter/dynamic
+
+exporter:
+  image:
+    name: bougou/iftop-exporter
+    tag: latest
+
+  port: "9999"
+
+helper:
+  image:
+    name: bougou/iftop-exporter-k8s-helper
+    tag: latest
+
+  selectors: []
+
+  manager:
+    logLevel: 1
+    metricsPort: 8080
+    healthPort: 8081
+
+  # kube-rbac-proxy container
+  proxy:
+    enabled: true
+    port: 8443

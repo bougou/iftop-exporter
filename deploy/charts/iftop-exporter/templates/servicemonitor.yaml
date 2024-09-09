@@ -1,0 +1,28 @@
+# Prometheus Monitor Service (Metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    control-plane: iftop-exporter
+  name: iftop-exporter
+spec:
+  attachMetadata:
+    node: false
+  endpoints:
+  - path: /metrics
+    port: helper-metrics
+    scheme: https
+    bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tlsConfig:
+      insecureSkipVerify: true
+  - path: /metrics
+    port: exporter-metrics
+    relabelings:
+    - action: replace
+      sourceLabels:
+      - __meta_kubernetes_pod_node_name
+      targetLabel: node_name
+    scheme: http
+  selector:
+    matchLabels:
+      control-plane: iftop-exporter

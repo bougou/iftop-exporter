@@ -1,0 +1,182 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ template "iftop-exporter.name" . }}
+  namespace: {{ template "iftop-exporter.namespace" . }}
+  labels:
+    control-plane: iftop-exporter
+spec:
+  selector:
+    matchLabels:
+      control-plane: iftop-exporter
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: iftop-exporter
+      labels:
+        control-plane: iftop-exporter
+    spec:
+      containers:
+      - command:
+        - /iftop-exporter
+        args:
+        - "-dynamic"
+        - "-dynamic-dir={{ .Values.dynamicDir }}"
+        - "-addr=0.0.0.0:{{ .Values.exporter.port }}"
+        image: {{ .Values.exporter.image.name }}:{{ .Values.exporter.image.tag }}
+        name: iftop-exporter
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+          runAsUser: 0
+        env: []
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: {{ .Values.exporter.port }}
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: {{ .Values.exporter.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        volumeMounts:
+        - mountPath: {{ .Values.dynamicDir }}
+          name: dynamic-dir
+        - mountPath: /host/run
+          name: run
+          readOnly: true
+        - mountPath: /host/var/lib
+          name: var-lib
+          readOnly: true
+        - mountPath: /host/root
+          mountPropagation: HostToContainer
+          name: root
+      - command:
+        - /manager
+        args:
+        - "--health-probe-bind-address=:{{ .Values.helper.manager.healthPort }}"
+        - "--metrics-bind-address=127.0.0.1:{{ .Values.helper.manager.metricsPort }}"
+        - "--zap-log-level={{ .Values.helper.manager.logLevel }}"
+        # - "--leader-elect"
+        - "--rootfs=/host/root"
+        - "--dynamic-dir={{ .Values.dynamicDir }}"
+        {{- range $selector := .Values.helper.selectors }}
+        - "--selectors={{ $selector }}"
+        {{- end }}
+        image: {{ .Values.helper.image.name }}:{{ .Values.helper.image.tag }}
+        name: manager
+        imagePullPolicy: Always
+        securityContext:
+          # allowPrivilegeEscalation: false
+          # capabilities:
+          #   drop:
+          #     - "ALL"
+          privileged: true
+          runAsUser: 0
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: CONTAINERD_HOST
+          value: "/host/run/containerd/containerd.sock"
+        - name: DOCKER_HOST
+          value: "unix:///host/run/docker.sock"
+        - name: HOST_ROOT_PREFIX
+          value: "/host/root"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: {{ .Values.helper.manager.healthPort }}
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: {{ .Values.helper.manager.healthPort }}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - mountPath: {{ .Values.dynamicDir }}
+          name: dynamic-dir
+        - mountPath: /host/run
+          name: run
+          readOnly: true
+        - mountPath: /host/var/lib
+          name: var-lib
+          readOnly: true
+        - mountPath: /host/root
+          mountPropagation: HostToContainer
+          name: root
+      - name: kube-rbac-proxy
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - "ALL"
+        # image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+        image: uhub.service.ucloud.cn/mirrors/kube-rbac-proxy:v0.13.1
+        args:
+        - "--secure-listen-address=0.0.0.0:{{ .Values.helper.proxy.port }}"
+        - "--upstream=http://127.0.0.1:{{ .Values.helper.manager.metricsPort }}/"
+        - "--logtostderr=true"
+        - "--v=0"
+        ports:
+        - containerPort: {{ .Values.helper.proxy.port }}
+          protocol: TCP
+          name: https
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 5m
+            memory: 64Mi
+      volumes:
+      - name: dynamic-dir
+        emptyDir:
+          sizeLimit: 10Mi
+      - hostPath:
+          path: /run
+          type: ""
+        name: run
+      - hostPath:
+          path: /var/lib
+          type: ""
+        name: var-lib
+      - hostPath:
+          path: /
+          type: ""
+        name: root
+      securityContext:
+        runAsNonRoot: false
+      enableServiceLinks: false
+      serviceAccountName: iftop-exporter
+      serviceAccount: iftop-exporter
+      terminationGracePeriodSeconds: 10
+      hostNetwork: true
