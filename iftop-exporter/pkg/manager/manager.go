@@ -181,7 +181,7 @@ func (manager *Manager) exec(interfaceName string) error {
 
 		if !override {
 			if _, ok := manager.tasks[interfaceName]; ok {
-				log.Printf("iftop task already there")
+				log.Printf("iftop task already there (%s)", interfaceName)
 				return
 			}
 		}
@@ -191,9 +191,10 @@ func (manager *Manager) exec(interfaceName string) error {
 		manager.lock.Unlock()
 
 		go func() {
+			log.Printf("iftop task start (%s)", interfaceName)
 			err := iftopTask.Run()
 			if err != nil {
-				log.Printf("iftop task exit, err: %s", err)
+				log.Printf("iftop task exit (%s), err: %s", interfaceName, err)
 			}
 			exitCh <- err
 		}()
