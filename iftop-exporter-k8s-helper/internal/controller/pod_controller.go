@@ -133,8 +133,7 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 type InterfaceInfo struct {
-	PodNamespace           string `json:"pod_namespace,omitempty"`
-	PodName                string `json:"pod_name,omitempty"`
+	Owner                  string `json:"owner,omitempty"`
 	ContainerInterfaceName string `json:"container_interface_name,omitempty"`
 	NodeInterfaceName      string `json:"node_interface_name,omitempty"`
 }
@@ -171,8 +170,7 @@ func (r *PodReconciler) setInterfaces(ctx context.Context, podKey string, pod *c
 	}
 	for interfaceContainer, interfaceNode := range interfacesMapping {
 		interfaceInfo := InterfaceInfo{
-			PodNamespace:           pod.Namespace,
-			PodName:                pod.Name,
+			Owner:                  fmt.Sprintf("%s/%s", pod.Namespace, pod.Name),
 			ContainerInterfaceName: interfaceContainer,
 			NodeInterfaceName:      interfaceNode,
 		}
