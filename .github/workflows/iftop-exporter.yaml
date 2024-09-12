@@ -80,4 +80,4 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         prerelease: false
         files: |
-          _output/*
+          iftop-exporter/_output/*
