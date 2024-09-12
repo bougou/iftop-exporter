@@ -15,7 +15,8 @@ spec:
     bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
     tlsConfig:
       insecureSkipVerify: true
-  - path: /metrics
+  - interval: {{ .Values.serviceMonitor.exporter.scrapeInterval }}
+    path: /metrics
     port: exporter-metrics
     relabelings:
     - action: replace

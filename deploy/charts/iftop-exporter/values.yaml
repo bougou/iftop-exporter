@@ -23,3 +23,7 @@ helper:
   proxy:
     enabled: true
     port: 8443
+
+serviceMonitor:
+  exporter:
+    scrapeInterval: 10s
