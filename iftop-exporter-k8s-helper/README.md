@@ -1,94 +1,18 @@
 # iftop-exporter-k8s-helper
-// TODO(user): Add simple overview of use/purpose
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+The `iftop-exporter-k8s-helper` is a kubebuilder based project. It
+- watches the pods by specified `selectors` (use labels to match target pods),
+- and then fetch the node-side `interface` name of the pod/container,
+- and then write a file with `interface` name to the dynamic-dir of `iftop-exporter`.
 
-## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+Then, the `iftop-exporter` can start `iftop` programs for those dynamic found interfaces, and collect and interpret the metrics.
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+## Why `iftop-exporter-k8s-helper` exists
 
-```sh
-kubectl apply -k config/samples/
-```
+In most cases, you don't want to start one `iftop` program for each of all the pods in the K8S cluster.
 
-2. Build and push your image to the location specified by `IMG`:
+The `iftop` program needs to known the interface name. So we need to dynamically fetch the interface names of the pods that we cared.
 
-```sh
-make docker-build docker-push IMG=<some-registry>/iftop-exporter-k8s-helper:tag
-```
+The `iftop-exporter` accepts static interface names and also watches a dynamic dir. It would be notified if any file operations occurred in the dynamic dir through [fsnotify](https://github.com/fsnotify/fsnotify).
 
-3. Deploy the controller to the cluster with the image specified by `IMG`:
-
-```sh
-make deploy IMG=<some-registry>/iftop-exporter-k8s-helper:tag
-```
-
-### Uninstall CRDs
-To delete the CRDs from the cluster:
-
-```sh
-make uninstall
-```
-
-### Undeploy controller
-UnDeploy the controller from the cluster:
-
-```sh
-make undeploy
-```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/).
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/),
-which provide a reconcile function responsible for synchronizing resources until the desired state is reached on the cluster.
-
-### Test It Out
-1. Install the CRDs into the cluster:
-
-```sh
-make install
-```
-
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
-
-```sh
-make run
-```
-
-**NOTE:** You can also run this in one step by running: `make install run`
-
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
-
-```sh
-make manifests
-```
-
-**NOTE:** Run `make --help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2024 Bougou.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+You can just put files named with the names of the interface into the dynamic dir, then `iftop-exporter` would receive the information and start `iftop` programs for these interfaces.
