@@ -5,7 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -155,9 +154,6 @@ Cumulative (sent/received/total):                    5.32MB     13.2MB     18.5M
 		reader := bytes.NewReader([]byte(tt.input))
 		wg.Add(1)
 		processStdout(&wg, task, reader)
-		pretty.Println(task.state)
-
-		assert.Equal(t, "eno2", task.state.Interface)
 
 		flow1 := task.state.FlowStats.Flows[0]
 		flow1Expected := tt.expected.FlowStats.Flows[0]

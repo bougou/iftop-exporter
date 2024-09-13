@@ -15,4 +15,4 @@ The `iftop` program needs to known the interface name. So we need to dynamically
 
 The `iftop-exporter` accepts static interface names and also watches a dynamic dir. It would be notified if any file operations occurred in the dynamic dir through [fsnotify](https://github.com/fsnotify/fsnotify).
 
-You can just put files named with the names of the interface into the dynamic dir, then `iftop-exporter` would receive the information and start `iftop` programs for these interfaces.
+You can just put files named with the names of the interfaces into the dynamic dir, then `iftop-exporter` would receive the information and start `iftop` programs for these interfaces.

@@ -1,7 +1,6 @@
 package iftop
 
 import (
-	"bytes"
 	"net"
 	"regexp"
 	"strconv"
@@ -19,6 +18,66 @@ var (
 	flowInPattern = `(?P<Addr>\S+)\s*<=\s*(?P<Last2>\S+)\s*(?P<Last10>\S+)\s*(?P<Last40>\S+)\s*(?P<Cumulative>\S+)`
 	flowInMatcher = regexp.MustCompile(flowInPattern)
 )
+
+type State struct {
+	Interface string     `json:"interface"`
+	IP        string     `json:"ip"`
+	IPv6      string     `json:"ipv6"`
+	MAC       string     `json:"mac"`
+	FlowStats *FlowStats `json:"flow_stats"`
+}
+
+type FlowStats struct {
+	Flows []*Flow `json:"flows"`
+
+	TotalSentLast2RateBits  float64 // unit: bits per second
+	TotalSentLast10RateBits float64 // unit: bits per second
+	TotalSentLast40RateBits float64 // unit: bits per second
+
+	TotalRecvLast2RateBits  float64 // unit: bits per second
+	TotalRecvLast10RateBits float64 // unit: bits per second
+	TotalRecvLast40RateBits float64 // unit: bits per second
+
+	TotalSentAndRecvLast2RateBits  float64 // unit: bits per second
+	TotalSentAndRecvLast10RateBits float64 // unit: bits per second
+	TotalSentAndRecvLast40RateBits float64 // unit: bits per second
+
+	PeakSentRateBits        float64 // unit: bits per second
+	PeakRecvRateBits        float64 // unit: bits per second
+	PeakSentAndRecvRateBits float64 // unit: bits per second
+
+	CumulativeSentBytes        float64 // unit: Bytes
+	CumulativeRecvBytes        float64 // unit: Bytes
+	CumulativeSentAndRecvBytes float64 // unit: Bytes
+}
+
+type FlowDirection string
+
+const (
+	FlowDirectionOut FlowDirection = "out" // src => dst
+	FlowDirectionIn  FlowDirection = "in"  // src <= dst
+	FlowDirectionX   FlowDirection = "x"   // src <=> dst (in and out)
+)
+
+type FlowType string
+
+const (
+	FlowTypePublic  FlowType = "public"
+	FlowTypePrivate FlowType = "private"
+)
+
+type Flow struct {
+	Index     int
+	Src       string
+	Dst       string
+	Direction FlowDirection
+	Type      FlowType
+
+	Last2RateBits   float64 // unit: bits per second
+	Last10RateBits  float64 // unit: bits per second
+	Last40RateBits  float64 // unit: bits per second
+	CumulativeBytes float64 // unit: Bytes
+}
 
 func (task *Task) processStderrLine(line string) {
 	line = strings.TrimSpace(line)
@@ -243,27 +302,4 @@ func parseValueToBits(value string) (bits float64) {
 	}
 
 	return v
-}
-
-func scanProgressLines(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
-	}
-	if i := bytes.IndexAny(data, "\r\n"); i >= 0 {
-		if data[i] == '\n' {
-			// We have a line terminated by single newline.
-			return i + 1, data[0:i], nil
-		}
-		advance = i + 1
-		if len(data) > i+1 && data[i+1] == '\n' {
-			advance += 1
-		}
-		return advance, data[0:i], nil
-	}
-	// If we're at EOF, we have a final, non-terminated line. Return it.
-	if atEOF {
-		return len(data), data, nil
-	}
-	// Request more data.
-	return 0, nil, nil
 }
