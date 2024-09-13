@@ -33,7 +33,7 @@ func TestSelectors(t *testing.T) {
 			number: 2,
 			inputSelectors: []string{
 				"selector1:some.key.label1/test.com==some-value1,some.key.label2!=some-value2",
-				"selector2:some.key.label3/test.com==some-value3,some.key.label4!=some-value4",
+				"selector2:some.key.label3/test.com=some-value3,some.key.label4!=some-value4",
 				"selector3:some.key.label3/test.com==",
 			},
 			inputLabels: map[string]string{
@@ -46,7 +46,7 @@ func TestSelectors(t *testing.T) {
 		{
 			number: 3,
 			inputSelectors: []string{
-				"selector1:some.key.label1/test.com==some-value1,some.key.label2!=some-value2",
+				"selector1:some.key.label1/test.com=some-value1,some.key.label2!=some-value2",
 				"selector2:some.key.label3/test.com==some-value3,some.key.label4!=some-value4",
 				"selector3:some.key.label3/test.com==",
 			},

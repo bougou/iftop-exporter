@@ -83,7 +83,7 @@ func (manager *Manager) updateMetrics(states []iftop.State) {
 		interfaceInfo := manager.dynamicInterfaceInfo[interfaceName]
 		owner := interfaceInfo["owner"]
 
-		log.Printf("update metrics: (%d) flows", len(state.FlowStats.Flows))
+		log.Printf("update metrics: (%d) flows for interface (%s, %s)", len(state.FlowStats.Flows), interfaceName, owner)
 
 		for _, flow := range state.FlowStats.Flows {
 			if flow == nil {

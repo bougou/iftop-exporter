@@ -78,7 +78,6 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 
 		// Now `client.IgnoreNotFound` return nil, means the object has been deleted
-		log.Info(fmt.Sprintf("Pod deleted (%s)", podKey))
 		if err := r.cleanInterfaces(podKey); err != nil {
 			log.Error(err, "clear pod interfaces")
 			return ctrl.Result{}, err

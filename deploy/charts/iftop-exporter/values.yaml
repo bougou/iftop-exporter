@@ -18,13 +18,13 @@ helper:
   #
   # Note:
   # 1. For each selector, the selectorName is MUST, the selectorName and labels are colon-separated (`:`), the labels are comma-separated (`,`).
-  # 2. In each selector, the labels criteria are logical ANDed, which means that
-  #    all labels criteria MUST be all matched, then the selector is matched.
-  #    For label criteria,
-  #      - Only "==" and "!=" are valid label operators.
+  # 2. In each selector, the label selections are logical AND-ed, which means that
+  #    all label selections MUST be all matched, then the selector is matched.
+  #    For label selection,
+  #    - Only "=", "==", "!=" are valid labelOperators. "=" and "==" have same result.
   #      - If label-value is omitted, it would be set to empty string.
   #      - If label-operator (and label-value) is omitted, it means to check the existence of the label key.
-  # 3. Different selectors are logical ORed (selector1 or selector2), which means that
+  # 3. Different selectors are logical OR-ed (selector1 or selector2), which means that
   #    any one selector is matched, the Pod is selected.
   selectors: []
 

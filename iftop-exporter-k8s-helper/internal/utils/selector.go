@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Selectors is a list of Selector, and the items are ORed when used.
+// Selectors is a list of Selector, and the items are OR-ed when used.
 type Selectors []Selector
 
 type Selector struct {
@@ -75,7 +75,7 @@ func (ss Selectors) Hit(podLabels map[string]string) bool {
 
 // Valid formats for input selector: "{SelectorName}:{LabelKeyOperatorValue},{LabelKeyOperatorValue},{LabelKeyOperatorValue}"
 //
-// Multiple {LabelKeyOperatorValue} can be specified, and they would be ANDed when used.
+// Multiple {LabelKeyOperatorValue} can be specified, and they would be AND-ed when used.
 //
 // Valid formats of {LabelKeyOperatorValue} are:
 //
@@ -84,7 +84,7 @@ func (ss Selectors) Hit(podLabels map[string]string) bool {
 //   - "{LabelKey}"
 //
 // Note:
-//   - Only "==" and "!=" are valid labelOperators.
+//   - Only "=", "==", "!=" are valid labelOperators. "=" and "==" have same result.
 //   - If LabelValue is omitted, it would be set to empty string.
 //   - If LabelOperator is omitted, it means to check the existence of LabelKey.
 //
@@ -111,6 +111,13 @@ func ParseSelector(input string) (*Selector, error) {
 				})
 			} else if strings.Contains(kopvStr, "==") {
 				fields := strings.Split(kopvStr, "==")
+				kopvs = append(kopvs, KopV{
+					Key:   fields[0],
+					Op:    "==",
+					Value: fields[1],
+				})
+			} else if strings.Contains(kopvStr, "=") {
+				fields := strings.Split(kopvStr, "=")
 				kopvs = append(kopvs, KopV{
 					Key:   fields[0],
 					Op:    "==",

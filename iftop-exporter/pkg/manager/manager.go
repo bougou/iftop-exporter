@@ -125,6 +125,8 @@ func (manager *Manager) watch() error {
 					}
 				}
 
+				owner := interfaceInfo["owner"]
+				log.Printf("try to start iftop for interface (%s, %s)", interfaceName, owner)
 				manager.start(interfaceName)
 				continue
 			}
@@ -233,7 +235,7 @@ func (manager *Manager) updateMetricsLoop() error {
 	for {
 		select {
 		case <-ticker.C:
-			log.Printf("update metrics: got (%d) iftop tasks", len(manager.tasks))
+			log.Printf("update metrics: found total (%d) iftop tasks", len(manager.tasks))
 
 			states := []iftop.State{}
 			for _, iftopTask := range manager.tasks {
