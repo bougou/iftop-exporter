@@ -7,7 +7,6 @@ replace github.com/bougou/iftop-exporter/iftop-exporter v0.0.0 => ./
 require (
 	github.com/bougou/go-unit v0.1.0
 	github.com/fsnotify/fsnotify v1.7.0
-	github.com/kr/pretty v0.3.1
 	github.com/prometheus/client_golang v1.20.3
 	github.com/stretchr/testify v1.9.0
 	github.com/vishvananda/netlink v1.3.0

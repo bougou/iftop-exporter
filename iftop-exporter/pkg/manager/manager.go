@@ -25,6 +25,10 @@ type Manager struct {
 	dynamic              bool
 	dynamicDir           string
 	dynamicInterfaceInfo map[string]map[string]string // labels for each interfaceName
+
+	runPeriodically     bool
+	runPeriodicInterval time.Duration
+	runPeriodicDuration time.Duration
 }
 
 func NewManager(staticIntefaceNames []string, dynamic bool, dynamicDir string) (*Manager, error) {
@@ -39,6 +43,13 @@ func NewManager(staticIntefaceNames []string, dynamic bool, dynamicDir string) (
 	}
 
 	return manager, nil
+}
+
+func (manager *Manager) WithRunPeriodically(interval time.Duration, duration time.Duration) *Manager {
+	manager.runPeriodically = true
+	manager.runPeriodicInterval = interval
+	manager.runPeriodicDuration = duration
+	return manager
 }
 
 func (manager *Manager) isStaticInterface(interfaceName string) bool {
@@ -146,11 +157,6 @@ func (manager *Manager) watch() error {
 }
 
 func (manager *Manager) start(interfaceName string) {
-	if _, ok := manager.tasks[interfaceName]; ok {
-		log.Printf("iftop task already started for interface (%s)", interfaceName)
-		return
-	}
-
 	go manager.exec(interfaceName)
 }
 
@@ -172,61 +178,98 @@ func (manager *Manager) static() error {
 }
 
 func (manager *Manager) exec(interfaceName string) error {
-
-	var iftopTask *iftop.Task
+	// To avoid starting multiple iftop tasks for the same interface
+	manager.lock.Lock()
+	_, exists := manager.tasks[interfaceName]
+	if exists {
+		log.Printf("iftop task already there (%s)", interfaceName)
+		manager.lock.Unlock()
+		return nil
+	}
+	iftopTask := manager.newIftopTask(interfaceName)
 	removeCh := make(chan int)
 	exitCh := make(chan error)
+	manager.tasks[interfaceName] = iftopTask
 	manager.removeChs[interfaceName] = removeCh
+	manager.lock.Unlock()
 
-	var startTask = func(override bool) {
-		manager.lock.Lock()
-
-		if !override {
-			if _, ok := manager.tasks[interfaceName]; ok {
-				log.Printf("iftop task already there (%s)", interfaceName)
-				return
-			}
+	go func() {
+		log.Printf("initial iftop task start (%s)", interfaceName)
+		err := iftopTask.Run()
+		if err != nil {
+			log.Printf("initial iftop task exit (%s), err: %s", interfaceName, err)
 		}
-
-		iftopTask = iftop.NewTask(interfaceName)
-		manager.tasks[interfaceName] = iftopTask
-		manager.lock.Unlock()
-
-		go func() {
-			log.Printf("iftop task start (%s)", interfaceName)
-			err := iftopTask.Run()
-			if err != nil {
-				log.Printf("iftop task exit (%s), err: %s", interfaceName, err)
-			}
-			exitCh <- err
-		}()
-	}
-
-	startTask(false)
+		exitCh <- err
+	}()
 
 	for {
 		select {
-		case <-removeCh:
-			if iftopTask.GetCmd() != nil && iftopTask.GetCmd().Process != nil {
-				if err := iftopTask.GetCmd().Process.Kill(); err != nil {
-					log.Printf("kill process for interface (%s) failed, err: %s", interfaceName, err)
-				} else {
-					log.Printf("kill process for interface (%s) succeeded", interfaceName)
-				}
-			}
-
-			manager.lock.Lock()
-			delete(manager.removeChs, interfaceName)
-			delete(manager.tasks, interfaceName)
-			manager.lock.Unlock()
-			return nil
-
 		case <-exitCh:
-			log.Printf("iftop process for interface (%s) exit, try start again", interfaceName)
-			time.Sleep(2 * time.Second)
-			startTask(true)
+			go func() {
+
+				if manager.runPeriodically {
+					log.Printf("iftop task exit (%s), wait periodic interval (%s) and start again", interfaceName, manager.runPeriodicInterval)
+					time.Sleep(manager.runPeriodicInterval)
+
+					iftopTask := manager.newIftopTask(interfaceName)
+					log.Printf("iftop task start (%s)", interfaceName)
+					err := iftopTask.Run()
+					if err != nil {
+						log.Printf("iftop task failed (%s), err: %s", interfaceName, err)
+						exitCh <- err
+						return
+					}
+
+					// For periodic mode,ONLY update the task cached in manager.tasks if iftop task exit without error
+					manager.tasks[interfaceName] = iftopTask
+					exitCh <- err
+
+				} else {
+					log.Printf("iftop task exit (%s), try start again", interfaceName)
+					time.Sleep(2 * time.Second)
+
+					// For continuous mode, immediately update the cached iftop Task, the task is long-running, no need to wait for it exit.
+					iftopTask := manager.newIftopTask(interfaceName)
+					manager.tasks[interfaceName] = iftopTask
+
+					log.Printf("iftop task start (%s)", interfaceName)
+					err := iftopTask.Run()
+					if err != nil {
+						log.Printf("iftop task failed (%s), err: %s", interfaceName, err)
+					}
+					exitCh <- err
+				}
+			}()
+
+		case <-removeCh:
+			if err := manager.removeTask(interfaceName); err != nil {
+				log.Printf("remove task failed, err: %s", err)
+				return nil
+			}
+		}
+
+	}
+}
+
+func (manager *Manager) removeTask(interfaceName string) error {
+	iftopTask, ok := manager.tasks[interfaceName]
+	if !ok {
+		return nil
+	}
+
+	if iftopTask.GetCmd() != nil && iftopTask.GetCmd().Process != nil {
+		if err := iftopTask.GetCmd().Process.Kill(); err != nil {
+			log.Printf("kill process for interface (%s) failed, err: %s", interfaceName, err)
+		} else {
+			log.Printf("kill process for interface (%s) succeeded", interfaceName)
 		}
 	}
+
+	manager.lock.Lock()
+	delete(manager.removeChs, interfaceName)
+	delete(manager.tasks, interfaceName)
+	manager.lock.Unlock()
+	return nil
 }
 
 func (manager *Manager) updateMetricsLoop() error {
@@ -235,7 +278,11 @@ func (manager *Manager) updateMetricsLoop() error {
 	for {
 		select {
 		case <-ticker.C:
-			log.Printf("update metrics: found total (%d) iftop tasks", len(manager.tasks))
+			taskIDs := []string{}
+			for _, iftopTask := range manager.tasks {
+				taskIDs = append(taskIDs, iftopTask.ID())
+			}
+			log.Printf("update metrics: found total (%d) iftop tasks (%v)", len(manager.tasks), taskIDs)
 
 			states := []iftop.State{}
 			for _, iftopTask := range manager.tasks {
@@ -257,4 +304,18 @@ func (manager *Manager) Run() error {
 	}
 
 	return nil
+}
+
+func (manager *Manager) newIftopTask(interfaceName string) *iftop.Task {
+	options := iftop.Options{
+		InterfaceName:    interfaceName,
+		NoHostnameLookup: true,
+		SortBy:           iftop.SortBy2s,
+	}
+
+	if manager.runPeriodically {
+		options.SingleSeconds = int(manager.runPeriodicDuration.Seconds())
+	}
+
+	return iftop.NewTask(options)
 }

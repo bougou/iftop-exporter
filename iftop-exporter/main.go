@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"log"
 
@@ -20,6 +21,10 @@ func main() {
 	interfaces := fs.String("interfaces", "", "interface names separated by comma")
 	dynamic := fs.Bool("dynamic", false, "dynamic mode")
 	dynamicDir := fs.String("dynamic-dir", "/var/lib/iftop-exporter/dynamic", "dynamic directory")
+	periodic := fs.Bool("periodic", false, "periodic mode")
+	periodicInterval := fs.Duration("periodic-interval", 10*time.Second, "periodic mode interval, and must not be less than 10 seconds")
+	periodicDuration := fs.Duration("periodic-duration", 3*time.Second,
+		"periodic mode duration, and must not be less than 3 seconds, and periodicDuration must be less than periodicInterval")
 	version := fs.Bool("version", false, "print version")
 	help := fs.Bool("help", false, "print help")
 
@@ -57,6 +62,27 @@ func main() {
 	log.Printf("got (%d) static interfaces", len(interfaceNames))
 
 	iftopManager, err := manager.NewManager(interfaceNames, *dynamic, *dynamicDir)
+	if *periodic {
+		log.Printf("periodic mode enabled")
+
+		if *periodicInterval < 10*time.Second {
+			log.Printf("Err: periodic interval (%s) must not be less than 10 seconds", *periodicInterval)
+			os.Exit(1)
+		}
+
+		if *periodicDuration < 3*time.Second {
+			log.Printf("Err: periodic duration (%s) must not be less than 3 seconds", *periodicDuration)
+			os.Exit(1)
+		}
+
+		if *periodicDuration >= *periodicInterval {
+			log.Printf("Err: periodic duration (%s) must be less than interval (%s)", *periodicDuration, *periodicInterval)
+			os.Exit(1)
+		}
+
+		iftopManager.WithRunPeriodically(*periodicInterval, *periodicDuration)
+	}
+
 	if err != nil {
 		log.Printf("create iftop manager failed, err: %s", err)
 		os.Exit(1)

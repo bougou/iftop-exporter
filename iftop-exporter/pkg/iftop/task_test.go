@@ -146,7 +146,10 @@ Cumulative (sent/received/total):                    5.32MB     13.2MB     18.5M
 		},
 	}
 
-	task := NewTask("eno2")
+	options := Options{
+		InterfaceName: "eno2",
+	}
+	task := NewTask(options)
 
 	var wg sync.WaitGroup
 
@@ -187,8 +190,8 @@ func Test_removeAllEscape(t *testing.T) {
 		expect string
 	}{
 		{
-			input:  "\033[1;31mHello, \033[4mworld!\033[0m",
-			expect: "Hello, world!",
+			input:  "\033[1;31mHello, \033[4m world!\033[0m",
+			expect: "Hello,  world!",
 		},
 	}
 

@@ -26,9 +26,11 @@ type Log struct {
 	Stdout string `json:"stdout"`
 }
 
-func NewTask(interfaceName string) *Task {
+func NewTask(options Options) *Task {
+	options.useTextMode = true
+
 	return &Task{
-		iftop: NewIfTop(interfaceName),
+		iftop: NewIftop(options),
 		state: &State{},
 		log:   &Log{},
 	}
@@ -47,12 +49,16 @@ func (t Task) Log() Log {
 	}
 }
 
+func (t Task) ID() string {
+	return t.iftop.options.InterfaceName
+}
+
 // String return the actual exec cmd string of the task
 func (t Task) String() string {
 	return t.iftop.cmd.String()
 }
 
-// Run starts and waits the program until exi, and also process stdout/stderr in other go-routines.
+// Run starts and waits the program until exit, and also process stdout/stderr in other go-routines.
 func (t *Task) Run() error {
 	var err error
 

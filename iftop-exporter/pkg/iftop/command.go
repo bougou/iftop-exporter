@@ -7,6 +7,8 @@ import (
 
 type Command struct {
 	cmd *exec.Cmd
+
+	options Options
 }
 
 // StdoutPipe returns a pipe that will be connected to the command's
@@ -34,22 +36,20 @@ func (r Command) GetCmd() *exec.Cmd {
 	return r.cmd
 }
 
-// NewIfTop returns task with described options
-func NewIfTop(interfaceName string) *Command {
+func NewIftop(options Options) *Command {
+
 	binaryPath := "stdbuf"
 	arguments := []string{
 		"-oL",
 		"iftop",
-		"-n",
-		"-t",
-		"-o",
-		"10s",
-		"-i",
-		interfaceName,
 	}
+
+	options.useTextMode = true
+	arguments = append(arguments, getArguments(options)...)
 
 	cmd := exec.Command(binaryPath, arguments...)
 	return &Command{
-		cmd: cmd,
+		cmd:     cmd,
+		options: options,
 	}
 }
