@@ -23,6 +23,11 @@ spec:
         - "-dynamic"
         - "-dynamic-dir={{ .Values.dynamicDir }}"
         - "-addr=0.0.0.0:{{ .Values.exporter.port }}"
+        {{- if  .Values.exporter.periodicMode.enabled }}
+        - "-periodic"
+        - "-periodic-interval={{ .Values.exporter.periodicMode.interval }}"
+        - "-periodic-duration={{ .Values.exporter.periodicMode.duration }}"
+        {{- end }}
         image: {{ .Values.exporter.image.name }}:{{ .Values.exporter.image.tag }}
         name: iftop-exporter
         imagePullPolicy: Always
