@@ -111,7 +111,6 @@ func (manager *Manager) watch() error {
 
 			log.Printf("check event operation for interface (%s)", interfaceName)
 			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Chmod) {
-
 				log.Printf("[event (%s)] try to call LinkByName for interface (%s)", event.Op, interfaceName)
 				_, err := netlink.LinkByName(interfaceName)
 				if err != nil {
@@ -127,16 +126,18 @@ func (manager *Manager) watch() error {
 
 				b, err := os.ReadFile(event.Name)
 				if err != nil {
-					log.Printf("read file failed, err: %s", err)
-				} else {
-					if err := json.Unmarshal(b, &interfaceInfo); err != nil {
-						log.Printf("json unmarshal failed, err: %s", err)
-					} else {
-						manager.lock.Lock()
-						manager.dynamicInterfaceInfo[interfaceName] = interfaceInfo
-						manager.lock.Unlock()
-					}
+					log.Printf("read file failed for interface (%s), err: %s", interfaceName, err)
+					continue
 				}
+
+				if err := json.Unmarshal(b, &interfaceInfo); err != nil {
+					log.Printf("json unmarshal failed for interface (%s), err: %s", interfaceName, err)
+					continue
+				}
+
+				manager.lock.Lock()
+				manager.dynamicInterfaceInfo[interfaceName] = interfaceInfo
+				manager.lock.Unlock()
 
 				owner := interfaceInfo["owner"]
 				log.Printf("try to start iftop for interface (%s, %s)", interfaceName, owner)
@@ -242,9 +243,24 @@ func (manager *Manager) startTask(interfaceName string, removeCh <-chan int, exi
 	case <-time.After(time.Duration(sleepSeconds) * time.Second):
 		go func() {
 			iftopTask := manager.newIftopTask(interfaceName)
-			manager.tasks[interfaceName] = iftopTask
+
+			if !manager.runPeriodically {
+				// continuous mode: update the cached iftop task before iftop task start
+				manager.lock.Lock()
+				manager.tasks[interfaceName] = iftopTask
+				manager.lock.Unlock()
+			}
+
 			log.Printf("iftop task start (%s)", interfaceName)
 			err := iftopTask.Run()
+
+			if manager.runPeriodically {
+				// periodic mode: update the cached iftop task after iftop task start
+				manager.lock.Lock()
+				manager.tasks[interfaceName] = iftopTask
+				manager.lock.Unlock()
+			}
+
 			if err != nil {
 				log.Printf("iftop task failed (%s), err: %s", interfaceName, err)
 			}
@@ -278,6 +294,7 @@ func (manager *Manager) removeTask(interfaceName string) error {
 	manager.lock.Lock()
 	delete(manager.removeChs, interfaceName)
 	delete(manager.tasks, interfaceName)
+	delete(manager.dynamicInterfaceInfo, interfaceName)
 	manager.lock.Unlock()
 	return nil
 }
