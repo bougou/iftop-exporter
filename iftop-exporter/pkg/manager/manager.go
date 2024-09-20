@@ -109,18 +109,20 @@ func (manager *Manager) watch() error {
 				continue
 			}
 
-			log.Printf("try to call LinkByName for interface (%s)", interfaceName)
-			_, err := netlink.LinkByName(interfaceName)
-			if err != nil {
-				if _, ok := err.(netlink.LinkNotFoundError); ok {
-					log.Printf("interface ignored, not found link for interface (%s)", interfaceName)
-				}
-				log.Printf("call LinkByName failed, err: %s", err)
-				continue
-			}
-
 			log.Printf("check event operation for interface (%s)", interfaceName)
 			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Chmod) {
+
+				log.Printf("[event (%s)] try to call LinkByName for interface (%s)", event.Op, interfaceName)
+				_, err := netlink.LinkByName(interfaceName)
+				if err != nil {
+					if _, ok := err.(netlink.LinkNotFoundError); ok {
+						log.Printf("interface ignored, not found link for interface (%s)", interfaceName)
+					} else {
+						log.Printf("call LinkByName failed, err: %s", err)
+					}
+					continue
+				}
+
 				interfaceInfo := map[string]string{}
 
 				b, err := os.ReadFile(event.Name)
@@ -143,6 +145,7 @@ func (manager *Manager) watch() error {
 			}
 
 			if event.Has(fsnotify.Remove) {
+				log.Printf("[event (%s)] try to stop iftop task for interface (%s)", event.Op, interfaceName)
 				manager.stop(interfaceName)
 				continue
 			}
@@ -242,6 +245,7 @@ func (manager *Manager) exec(interfaceName string) error {
 			}()
 
 		case <-removeCh:
+			log.Printf("got remove signal for interface (%s)", interfaceName)
 			if err := manager.removeTask(interfaceName); err != nil {
 				log.Printf("remove task failed, err: %s", err)
 				return nil
