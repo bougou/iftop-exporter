@@ -5,9 +5,9 @@
 
 `iftop-exporter` is deployed as a DaemonSet with `hostNetwork=true` network mode in K8S environment.
 `iftop-exporter-k8s-helper` is deployed as sidecar of `iftop-exporter`.
-To avoid port conflicts, you can change the ports with custom values.
+To avoid port conflicts with the ports on node, you can change the pod ports with custom values.
 
-To select which pods/interfaces you want to monitor, you must specify `selectors` to filter out the pods.
+To select the pods/interfaces that you want to monitor, you must specify `selectors` to filter out the pods.
 
 ```bash
 $ vim values.yaml
@@ -16,6 +16,8 @@ exporter:
   port: "9999"
 
 helper:
+  # The selectors are used to filter out the pods that you want to monitor.
+  #
   # selectors:
   # - selector1Name:label1key,label2key==some-value
   # - selector2Name:label3key!=some-value,label4key==some-value

@@ -201,57 +201,61 @@ func (manager *Manager) exec(interfaceName string) error {
 		err := iftopTask.Run()
 		if err != nil {
 			log.Printf("initial iftop task exit (%s), err: %s", interfaceName, err)
+		} else {
+			log.Printf("initial iftop task exit (%s)", interfaceName)
 		}
 		exitCh <- err
 	}()
 
 	for {
 		select {
-		case <-exitCh:
-			go func() {
 
-				if manager.runPeriodically {
-					log.Printf("iftop task exit (%s), wait periodic interval (%s) and start again", interfaceName, manager.runPeriodicInterval)
-					time.Sleep(manager.runPeriodicInterval)
+		case exitErr := <-exitCh:
+			if exitErr != nil {
+				log.Printf("iftop task exit (%s) with error (%s), wait periodic interval (%s) and start again", interfaceName, exitErr, manager.runPeriodicInterval)
+			} else {
+				log.Printf("iftop task exit (%s), wait periodic interval (%s) and start again", interfaceName, manager.runPeriodicInterval)
+			}
 
-					iftopTask := manager.newIftopTask(interfaceName)
-					log.Printf("iftop task start (%s)", interfaceName)
-					err := iftopTask.Run()
-					if err != nil {
-						log.Printf("iftop task failed (%s), err: %s", interfaceName, err)
-						exitCh <- err
-						return
-					}
-
-					// For periodic mode,ONLY update the task cached in manager.tasks if iftop task exit without error
-					manager.tasks[interfaceName] = iftopTask
-					exitCh <- err
-
-				} else {
-					log.Printf("iftop task exit (%s), try start again", interfaceName)
-					time.Sleep(2 * time.Second)
-
-					// For continuous mode, immediately update the cached iftop Task, the task is long-running, no need to wait for it exit.
-					iftopTask := manager.newIftopTask(interfaceName)
-					manager.tasks[interfaceName] = iftopTask
-
-					log.Printf("iftop task start (%s)", interfaceName)
-					err := iftopTask.Run()
-					if err != nil {
-						log.Printf("iftop task failed (%s), err: %s", interfaceName, err)
-					}
-					exitCh <- err
-				}
-			}()
+			sleepSeconds := int(manager.runPeriodicInterval.Seconds())
+			if !manager.runPeriodically {
+				sleepSeconds = 2 // Just sleep 2 seconds for continuous mode
+			}
+			if err := manager.startTask(interfaceName, removeCh, exitCh, sleepSeconds); err != nil {
+				log.Printf("start task failed, err: %s", err)
+			}
 
 		case <-removeCh:
-			log.Printf("got remove signal for interface (%s)", interfaceName)
+			log.Printf("exec got remove signal for interface (%s)", interfaceName)
 			if err := manager.removeTask(interfaceName); err != nil {
 				log.Printf("remove task failed, err: %s", err)
-				return nil
 			}
+
+			return nil
 		}
 
+	}
+}
+
+func (manager *Manager) startTask(interfaceName string, removeCh <-chan int, exitCh chan<- error, sleepSeconds int) error {
+	select {
+	case <-time.After(time.Duration(sleepSeconds) * time.Second):
+		go func() {
+			iftopTask := manager.newIftopTask(interfaceName)
+			manager.tasks[interfaceName] = iftopTask
+			log.Printf("iftop task start (%s)", interfaceName)
+			err := iftopTask.Run()
+			if err != nil {
+				log.Printf("iftop task failed (%s), err: %s", interfaceName, err)
+			}
+			exitCh <- err
+		}()
+
+		return nil
+
+	case <-removeCh:
+		log.Printf("start task got remove signal for interface (%s), no need to start", interfaceName)
+		return nil
 	}
 }
 
@@ -260,6 +264,8 @@ func (manager *Manager) removeTask(interfaceName string) error {
 	if !ok {
 		return nil
 	}
+
+	log.Printf("remove task, try to kill iftop for interface (%s)", interfaceName)
 
 	if iftopTask.GetCmd() != nil && iftopTask.GetCmd().Process != nil {
 		if err := iftopTask.GetCmd().Process.Kill(); err != nil {
@@ -282,12 +288,7 @@ func (manager *Manager) updateMetricsLoop() error {
 	for {
 		select {
 		case <-ticker.C:
-			taskIDs := []string{}
-			for _, iftopTask := range manager.tasks {
-				taskIDs = append(taskIDs, iftopTask.ID())
-			}
-			log.Printf("update metrics: found total (%d) iftop tasks (%v)", len(manager.tasks), taskIDs)
-
+			log.Printf("update metrics: found total (%d) iftop tasks", len(manager.tasks))
 			states := []iftop.State{}
 			for _, iftopTask := range manager.tasks {
 				states = append(states, iftopTask.State())
