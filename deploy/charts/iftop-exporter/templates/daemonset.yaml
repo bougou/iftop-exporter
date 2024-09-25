@@ -30,7 +30,7 @@ spec:
         {{- end }}
         image: {{ .Values.exporter.image.name }}:{{ .Values.exporter.image.tag }}
         name: iftop-exporter
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         securityContext:
           privileged: true
           runAsUser: 0
@@ -80,7 +80,7 @@ spec:
         {{- end }}
         image: {{ .Values.helper.image.name }}:{{ .Values.helper.image.tag }}
         name: manager
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         securityContext:
           # allowPrivilegeEscalation: false
           # capabilities:
@@ -144,8 +144,8 @@ spec:
           capabilities:
             drop:
             - "ALL"
-        # image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
-        image: uhub.service.ucloud.cn/mirrors/kube-rbac-proxy:v0.13.1
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+        imagePullPolicy: IfNotPresent
         args:
         - "--secure-listen-address=0.0.0.0:{{ .Values.helper.proxy.port }}"
         - "--upstream=http://127.0.0.1:{{ .Values.helper.manager.metricsPort }}/"

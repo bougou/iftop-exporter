@@ -2,9 +2,8 @@ apiVersion: v2
 appVersion: 0.1.0
 description: helm chart for iftop-exporter
 name: iftop-exporter
-version: 1.0.0
+version: v1.0.1
 type: application
 maintainers:
   - name: bougou
     email: bouogu@126.com
-    url: https://github.com/bougou
