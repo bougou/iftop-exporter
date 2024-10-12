@@ -1,8 +1,6 @@
 package manager
 
 import (
-	"log"
-
 	"github.com/bougou/iftop-exporter/iftop-exporter/pkg/iftop"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -56,7 +54,7 @@ var (
 )
 
 // updateMetrics update metrics by reading the value from state
-func (manager *Manager) updateMetrics(states []iftop.State) {
+func (mgr *Manager) updateMetrics(states []iftop.State) {
 	if len(states) == 0 {
 		return
 	}
@@ -80,10 +78,10 @@ func (manager *Manager) updateMetrics(states []iftop.State) {
 		out := string(iftop.FlowDirectionOut)
 		in := string(iftop.FlowDirectionIn)
 		x := string(iftop.FlowDirectionX)
-		interfaceInfo := manager.dynamicInterfaceInfo[interfaceName]
+		interfaceInfo := mgr.dynamicInterfaceInfo[interfaceName]
 		owner := interfaceInfo["owner"]
 
-		log.Printf("update metrics: (%d) flows for interface (%s, %s)", len(state.FlowStats.Flows), interfaceName, owner)
+		mgr.Debugf("update metrics: (%d) flows for interface (%s, %s)", len(state.FlowStats.Flows), interfaceName, owner)
 
 		for _, flow := range state.FlowStats.Flows {
 			if flow == nil {

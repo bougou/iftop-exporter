@@ -29,6 +29,8 @@ type Manager struct {
 	runPeriodically     bool
 	runPeriodicInterval time.Duration
 	runPeriodicDuration time.Duration
+
+	debug bool
 }
 
 func NewManager(staticIntefaceNames []string, dynamic bool, dynamicDir string) (*Manager, error) {
@@ -45,15 +47,20 @@ func NewManager(staticIntefaceNames []string, dynamic bool, dynamicDir string) (
 	return manager, nil
 }
 
-func (manager *Manager) WithRunPeriodically(interval time.Duration, duration time.Duration) *Manager {
-	manager.runPeriodically = true
-	manager.runPeriodicInterval = interval
-	manager.runPeriodicDuration = duration
-	return manager
+func (mgr *Manager) WithRunPeriodically(interval time.Duration, duration time.Duration) *Manager {
+	mgr.runPeriodically = true
+	mgr.runPeriodicInterval = interval
+	mgr.runPeriodicDuration = duration
+	return mgr
 }
 
-func (manager *Manager) isStaticInterface(interfaceName string) bool {
-	for _, name := range manager.staticInterfaceNames {
+func (mgr *Manager) WithDebug(debug bool) *Manager {
+	mgr.debug = debug
+	return mgr
+}
+
+func (mgr *Manager) isStaticInterface(interfaceName string) bool {
+	for _, name := range mgr.staticInterfaceNames {
 		if name == interfaceName {
 			return true
 		}
@@ -62,8 +69,8 @@ func (manager *Manager) isStaticInterface(interfaceName string) bool {
 	return false
 }
 
-func (manager *Manager) watch() error {
-	if !manager.dynamic {
+func (mgr *Manager) watch() error {
+	if !mgr.dynamic {
 		log.Println("dynamic not enabled")
 		return nil
 	}
@@ -75,13 +82,13 @@ func (manager *Manager) watch() error {
 	}
 	defer watcher.Close()
 
-	log.Printf("start watch dynamic dir (%s)", manager.dynamicDir)
-	err = watcher.Add(manager.dynamicDir)
+	log.Printf("start watch dynamic dir (%s)", mgr.dynamicDir)
+	err = watcher.Add(mgr.dynamicDir)
 	if err != nil {
-		return fmt.Errorf("watch dynamic directory (%s) failed, err: %s", manager.dynamicDir, err)
+		return fmt.Errorf("watch dynamic directory (%s) failed, err: %s", mgr.dynamicDir, err)
 	}
 
-	watchingFile := filepath.Join(manager.dynamicDir, ".watching")
+	watchingFile := filepath.Join(mgr.dynamicDir, ".watching")
 	if err := os.WriteFile(watchingFile, []byte(""), os.ModePerm); err != nil {
 		return fmt.Errorf("create watching file (%s) failed, err: %s", watchingFile, err)
 	}
@@ -104,7 +111,7 @@ func (manager *Manager) watch() error {
 				continue
 			}
 
-			if manager.isStaticInterface(interfaceName) {
+			if mgr.isStaticInterface(interfaceName) {
 				log.Printf("watch ignored static interface (%s)", interfaceName)
 				continue
 			}
@@ -135,19 +142,19 @@ func (manager *Manager) watch() error {
 					continue
 				}
 
-				manager.lock.Lock()
-				manager.dynamicInterfaceInfo[interfaceName] = interfaceInfo
-				manager.lock.Unlock()
+				mgr.lock.Lock()
+				mgr.dynamicInterfaceInfo[interfaceName] = interfaceInfo
+				mgr.lock.Unlock()
 
 				owner := interfaceInfo["owner"]
 				log.Printf("try to start iftop for interface (%s, %s)", interfaceName, owner)
-				manager.start(interfaceName)
+				mgr.start(interfaceName)
 				continue
 			}
 
 			if event.Has(fsnotify.Remove) {
 				log.Printf("[event (%s)] try to stop iftop task for interface (%s)", event.Op, interfaceName)
-				manager.stop(interfaceName)
+				mgr.stop(interfaceName)
 				continue
 			}
 
@@ -160,42 +167,42 @@ func (manager *Manager) watch() error {
 	}
 }
 
-func (manager *Manager) start(interfaceName string) {
-	go manager.exec(interfaceName)
-}
-
-func (manager *Manager) stop(interfaceName string) {
-	// send remove signal
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
-
-	if removeCh, ok := manager.removeChs[interfaceName]; ok {
-		close(removeCh)
-	}
-}
-
-func (manager *Manager) static() error {
-	for _, interfaceName := range manager.staticInterfaceNames {
-		go manager.exec(interfaceName)
+func (mgr *Manager) static() error {
+	for _, interfaceName := range mgr.staticInterfaceNames {
+		go mgr.exec(interfaceName)
 	}
 	return nil
 }
 
-func (manager *Manager) exec(interfaceName string) error {
+func (mgr *Manager) start(interfaceName string) {
+	go mgr.exec(interfaceName)
+}
+
+func (mgr *Manager) stop(interfaceName string) {
+	// send remove signal
+	mgr.lock.Lock()
+	defer mgr.lock.Unlock()
+
+	if removeCh, ok := mgr.removeChs[interfaceName]; ok {
+		close(removeCh)
+	}
+}
+
+func (mgr *Manager) exec(interfaceName string) error {
 	// To avoid starting multiple iftop tasks for the same interface
-	manager.lock.Lock()
-	_, exists := manager.tasks[interfaceName]
+	mgr.lock.Lock()
+	_, exists := mgr.tasks[interfaceName]
 	if exists {
 		log.Printf("iftop task already there (%s)", interfaceName)
-		manager.lock.Unlock()
+		mgr.lock.Unlock()
 		return nil
 	}
-	iftopTask := manager.newIftopTask(interfaceName)
+	iftopTask := mgr.newIftopTask(interfaceName)
 	removeCh := make(chan int)
 	exitCh := make(chan error)
-	manager.tasks[interfaceName] = iftopTask
-	manager.removeChs[interfaceName] = removeCh
-	manager.lock.Unlock()
+	mgr.tasks[interfaceName] = iftopTask
+	mgr.removeChs[interfaceName] = removeCh
+	mgr.lock.Unlock()
 
 	go func() {
 		log.Printf("initial iftop task start (%s)", interfaceName)
@@ -213,22 +220,22 @@ func (manager *Manager) exec(interfaceName string) error {
 
 		case exitErr := <-exitCh:
 			if exitErr != nil {
-				log.Printf("iftop task exit (%s) with error (%s), wait periodic interval (%s) and start again", interfaceName, exitErr, manager.runPeriodicInterval)
+				log.Printf("iftop task exit (%s) with error (%s), wait periodic interval (%s) and start again", interfaceName, exitErr, mgr.runPeriodicInterval)
 			} else {
-				log.Printf("iftop task exit (%s), wait periodic interval (%s) and start again", interfaceName, manager.runPeriodicInterval)
+				log.Printf("iftop task exit (%s), wait periodic interval (%s) and start again", interfaceName, mgr.runPeriodicInterval)
 			}
 
-			sleepSeconds := int(manager.runPeriodicInterval.Seconds())
-			if !manager.runPeriodically {
+			sleepSeconds := int(mgr.runPeriodicInterval.Seconds())
+			if !mgr.runPeriodically {
 				sleepSeconds = 2 // Just sleep 2 seconds for continuous mode
 			}
-			if err := manager.startTask(interfaceName, removeCh, exitCh, sleepSeconds); err != nil {
+			if err := mgr.startTask(interfaceName, removeCh, exitCh, sleepSeconds); err != nil {
 				log.Printf("start task failed, err: %s", err)
 			}
 
 		case <-removeCh:
 			log.Printf("exec got remove signal for interface (%s)", interfaceName)
-			if err := manager.removeTask(interfaceName); err != nil {
+			if err := mgr.removeTask(interfaceName); err != nil {
 				log.Printf("remove task failed, err: %s", err)
 			}
 
@@ -238,27 +245,27 @@ func (manager *Manager) exec(interfaceName string) error {
 	}
 }
 
-func (manager *Manager) startTask(interfaceName string, removeCh <-chan int, exitCh chan<- error, sleepSeconds int) error {
+func (mgr *Manager) startTask(interfaceName string, removeCh <-chan int, exitCh chan<- error, sleepSeconds int) error {
 	select {
 	case <-time.After(time.Duration(sleepSeconds) * time.Second):
 		go func() {
-			iftopTask := manager.newIftopTask(interfaceName)
+			iftopTask := mgr.newIftopTask(interfaceName)
 
-			if !manager.runPeriodically {
+			if !mgr.runPeriodically {
 				// continuous mode: update the cached iftop task before iftop task start
-				manager.lock.Lock()
-				manager.tasks[interfaceName] = iftopTask
-				manager.lock.Unlock()
+				mgr.lock.Lock()
+				mgr.tasks[interfaceName] = iftopTask
+				mgr.lock.Unlock()
 			}
 
 			log.Printf("iftop task start (%s)", interfaceName)
 			err := iftopTask.Run()
 
-			if manager.runPeriodically {
+			if mgr.runPeriodically {
 				// periodic mode: update the cached iftop task after iftop task start
-				manager.lock.Lock()
-				manager.tasks[interfaceName] = iftopTask
-				manager.lock.Unlock()
+				mgr.lock.Lock()
+				mgr.tasks[interfaceName] = iftopTask
+				mgr.lock.Unlock()
 			}
 
 			if err != nil {
@@ -275,8 +282,8 @@ func (manager *Manager) startTask(interfaceName string, removeCh <-chan int, exi
 	}
 }
 
-func (manager *Manager) removeTask(interfaceName string) error {
-	iftopTask, ok := manager.tasks[interfaceName]
+func (mgr *Manager) removeTask(interfaceName string) error {
+	iftopTask, ok := mgr.tasks[interfaceName]
 	if !ok {
 		return nil
 	}
@@ -291,52 +298,52 @@ func (manager *Manager) removeTask(interfaceName string) error {
 		}
 	}
 
-	manager.lock.Lock()
-	delete(manager.removeChs, interfaceName)
-	delete(manager.tasks, interfaceName)
-	delete(manager.dynamicInterfaceInfo, interfaceName)
-	manager.lock.Unlock()
+	mgr.lock.Lock()
+	delete(mgr.removeChs, interfaceName)
+	delete(mgr.tasks, interfaceName)
+	delete(mgr.dynamicInterfaceInfo, interfaceName)
+	mgr.lock.Unlock()
 	return nil
 }
 
-func (manager *Manager) updateMetricsLoop() error {
+func (mgr *Manager) updateMetricsLoop() error {
 	ticker := time.NewTicker(time.Second * 10)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			log.Printf("update metrics: found total (%d) iftop tasks", len(manager.tasks))
+			mgr.Debugf("update metrics: found total (%d) iftop tasks", len(mgr.tasks))
 			states := []iftop.State{}
-			for _, iftopTask := range manager.tasks {
+			for _, iftopTask := range mgr.tasks {
 				states = append(states, iftopTask.State())
 			}
-			manager.updateMetrics(states)
+			mgr.updateMetrics(states)
 		}
 	}
 }
 
-func (manager *Manager) Run() error {
+func (mgr *Manager) Run() error {
 	log.Println("start: static interfaces")
-	manager.static()
-	go manager.watch()
+	mgr.static()
+	go mgr.watch()
 
 	// block here
-	if err := manager.updateMetricsLoop(); err != nil {
+	if err := mgr.updateMetricsLoop(); err != nil {
 		return fmt.Errorf("manager update metrics loop failed, err: %s", err)
 	}
 
 	return nil
 }
 
-func (manager *Manager) newIftopTask(interfaceName string) *iftop.Task {
+func (mgr *Manager) newIftopTask(interfaceName string) *iftop.Task {
 	options := iftop.Options{
 		InterfaceName:    interfaceName,
 		NoHostnameLookup: true,
 		SortBy:           iftop.SortBy2s,
 	}
 
-	if manager.runPeriodically {
-		options.SingleSeconds = int(manager.runPeriodicDuration.Seconds())
+	if mgr.runPeriodically {
+		options.SingleSeconds = int(mgr.runPeriodicDuration.Seconds())
 	}
 
 	return iftop.NewTask(options)

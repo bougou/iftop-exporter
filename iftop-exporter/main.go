@@ -26,6 +26,7 @@ func main() {
 	periodicDuration := fs.Duration("periodic-duration", 3*time.Second,
 		"periodic mode duration, and must not be less than 3 seconds, and periodicDuration must be less than periodicInterval")
 	version := fs.Bool("version", false, "print version")
+	debug := fs.Bool("debug", false, "debug mode")
 	help := fs.Bool("help", false, "print help")
 
 	// above flag.ExitOnError makes sure the program exit when Parse failed.
@@ -62,6 +63,13 @@ func main() {
 	log.Printf("got (%d) static interfaces", len(interfaceNames))
 
 	iftopManager, err := manager.NewManager(interfaceNames, *dynamic, *dynamicDir)
+	if err != nil {
+		log.Printf("create iftop manager failed, err: %s", err)
+		os.Exit(1)
+	}
+
+	iftopManager.WithDebug(*debug)
+
 	if *periodic {
 		log.Printf("periodic mode enabled")
 
@@ -83,10 +91,6 @@ func main() {
 		iftopManager.WithRunPeriodically(*periodicInterval, *periodicDuration)
 	}
 
-	if err != nil {
-		log.Printf("create iftop manager failed, err: %s", err)
-		os.Exit(1)
-	}
 	go iftopManager.Run()
 
 	http.Handle("/metrics", promhttp.Handler())
