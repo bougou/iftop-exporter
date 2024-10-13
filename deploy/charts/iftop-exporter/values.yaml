@@ -22,7 +22,9 @@ helper:
   # - selector2Name:label3key!=some-value,label4key==some-value
   #
   # Note:
-  # 1. For each selector, the selectorName is MUST, the selectorName and labels are colon-separated (`:`), the labels are comma-separated (`,`).
+  # 1. For each selector, the selectorName is MUST,
+  #    the selectorName is colon-separated (`:`) with the label selections,
+  #    the label selections are comma-separated (`,`).
   # 2. In each selector, the label selections are logical AND-ed, which means that
   #    all label selections MUST be all matched, then the selector is matched.
   #    For label selection,
