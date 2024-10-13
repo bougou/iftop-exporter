@@ -15,9 +15,14 @@ type Task struct {
 	iftop               *Command
 	state               *State
 	log                 *Log
+	flowIndex1Found     bool
 	processingIndex     int
 	processingOutFlow   *Flow
 	processingFlowStats *FlowStats
+	sumPrivateInFlow    *Flow
+	sumPrivateOutFlow   *Flow
+	sumPublicInFlow     *Flow
+	sumPublicOutFlow    *Flow
 }
 
 // Log contains raw stderr and stdout outputs
@@ -37,39 +42,39 @@ func NewTask(options Options) *Task {
 }
 
 // State returns information about progress task
-func (t Task) State() State {
-	return *t.state
+func (task Task) State() State {
+	return *task.state
 }
 
 // Log return structure which contains raw stderr and stdout outputs
-func (t Task) Log() Log {
+func (task Task) Log() Log {
 	return Log{
-		Stderr: t.log.Stderr,
-		Stdout: t.log.Stdout,
+		Stderr: task.log.Stderr,
+		Stdout: task.log.Stdout,
 	}
 }
 
-func (t Task) ID() string {
-	return t.iftop.options.InterfaceName
+func (task Task) ID() string {
+	return task.iftop.options.InterfaceName
 }
 
 // String return the actual exec cmd string of the task
-func (t Task) String() string {
-	return t.iftop.cmd.String()
+func (task Task) String() string {
+	return task.iftop.cmd.String()
 }
 
 // Run starts and waits the program until exit, and also process stdout/stderr in other go-routines.
-func (t *Task) Run() error {
+func (task *Task) Run() error {
 	var err error
 
 	// The pipe would be auto closed by `Wait`, so the caller that uses the pipe does not need to close it.
-	stderr, err := t.iftop.StderrPipe()
+	stderr, err := task.iftop.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("get StderrPipe failed, err: %s", err)
 	}
 	defer stderr.Close()
 
-	stdout, err := t.iftop.StdoutPipe()
+	stdout, err := task.iftop.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("get StdoutPipe failed, err: %s", err)
 	}
@@ -78,21 +83,21 @@ func (t *Task) Run() error {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go processStdout(&wg, t, stdout)
-	go processStderr(&wg, t, stderr)
+	go task.processStdout(&wg, stdout)
+	go task.processStderr(&wg, stderr)
 
-	err = t.iftop.Run()
+	err = task.iftop.Run()
 	wg.Wait()
 
 	return err
 }
 
 // GetCmd return the underlying exec.Cmd.
-func (r Task) GetCmd() *exec.Cmd {
-	return r.iftop.cmd
+func (task Task) GetCmd() *exec.Cmd {
+	return task.iftop.cmd
 }
 
-func processStdout(wg *sync.WaitGroup, task *Task, stdout io.Reader) {
+func (task *Task) processStdout(wg *sync.WaitGroup, stdout io.Reader) {
 	defer wg.Done()
 
 	scanner := bufio.NewScanner(stdout)
@@ -108,7 +113,7 @@ func processStdout(wg *sync.WaitGroup, task *Task, stdout io.Reader) {
 
 }
 
-func processStderr(wg *sync.WaitGroup, task *Task, stderr io.Reader) {
+func (task *Task) processStderr(wg *sync.WaitGroup, stderr io.Reader) {
 	defer wg.Done()
 
 	scanner := bufio.NewScanner(stderr)

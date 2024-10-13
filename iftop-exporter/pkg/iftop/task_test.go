@@ -156,7 +156,7 @@ Cumulative (sent/received/total):                    5.32MB     13.2MB     18.5M
 	for _, tt := range tests {
 		reader := bytes.NewReader([]byte(tt.input))
 		wg.Add(1)
-		processStdout(&wg, task, reader)
+		task.processStdout(&wg, reader)
 
 		flow1 := task.state.FlowStats.Flows[0]
 		flow1Expected := tt.expected.FlowStats.Flows[0]

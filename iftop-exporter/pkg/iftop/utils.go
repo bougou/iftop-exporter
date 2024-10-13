@@ -38,7 +38,7 @@ func GetNamedCapturingGroupMap(matcher *regexp.Regexp, input string) (result map
 	return result, true
 }
 
-// the input addr can contains port
+// the input addr may contain port
 func extractIP(addr string) string {
 	if addr == "" {
 		return ""

@@ -135,11 +135,66 @@ func (task *Task) processStdoutLine(line string) {
 			return
 		}
 
+		// invalid, the index of iftop flow starts from 1
+		if index == 0 {
+			return
+		}
+
 		if index == 1 {
+			// set flag to indicate that index-1 flow is found
+			// and ensure the following fields are initialized
+			task.flowIndex1Found = true
+
 			// init new flowStats
 			task.processingFlowStats = &FlowStats{
 				Flows: make([]*Flow, 0),
 			}
+
+			// init sum flows
+			task.sumPrivateInFlow = &Flow{
+				Src:             "all",
+				Dst:             "all",
+				Direction:       FlowDirectionIn,
+				Type:            FlowTypePrivate,
+				Last2RateBits:   0,
+				Last10RateBits:  0,
+				Last40RateBits:  0,
+				CumulativeBytes: 0,
+			}
+			task.sumPrivateOutFlow = &Flow{
+				Src:             "all",
+				Dst:             "all",
+				Direction:       FlowDirectionOut,
+				Type:            FlowTypePrivate,
+				Last2RateBits:   0,
+				Last10RateBits:  0,
+				Last40RateBits:  0,
+				CumulativeBytes: 0,
+			}
+			task.sumPublicInFlow = &Flow{
+				Src:             "all",
+				Dst:             "all",
+				Direction:       FlowDirectionIn,
+				Type:            FlowTypePublic,
+				Last2RateBits:   0,
+				Last10RateBits:  0,
+				Last40RateBits:  0,
+				CumulativeBytes: 0,
+			}
+			task.sumPublicOutFlow = &Flow{
+				Src:             "all",
+				Dst:             "all",
+				Direction:       FlowDirectionOut,
+				Type:            FlowTypePublic,
+				Last2RateBits:   0,
+				Last10RateBits:  0,
+				Last40RateBits:  0,
+				CumulativeBytes: 0,
+			}
+		}
+
+		if !task.flowIndex1Found {
+			return
 		}
 
 		task.processingIndex = index
@@ -158,8 +213,14 @@ func (task *Task) processStdoutLine(line string) {
 	}
 
 	if strings.Contains(line, "<=") {
+		// this is the `in` flow
+
 		if task.processingIndex == 0 {
-			// no toFlow saved
+			// no outFlow saved, ignore inFlow
+			return
+		}
+
+		if !task.flowIndex1Found {
 			return
 		}
 
@@ -190,7 +251,28 @@ func (task *Task) processStdoutLine(line string) {
 		dstIP := extractIP(outFlow.Dst)
 		if net.ParseIP(srcIP).IsPrivate() && net.ParseIP(dstIP).IsPrivate() {
 			outFlow.Type = FlowTypePrivate
+			task.sumPrivateOutFlow.Last2RateBits += outFlow.Last2RateBits
+			task.sumPrivateOutFlow.Last10RateBits += outFlow.Last10RateBits
+			task.sumPrivateOutFlow.Last40RateBits += outFlow.Last40RateBits
+			task.sumPrivateOutFlow.CumulativeBytes += outFlow.CumulativeBytes
+
 			inFlow.Type = FlowTypePrivate
+			task.sumPrivateInFlow.Last2RateBits += inFlow.Last2RateBits
+			task.sumPrivateInFlow.Last10RateBits += inFlow.Last10RateBits
+			task.sumPrivateInFlow.Last40RateBits += inFlow.Last40RateBits
+			task.sumPrivateInFlow.CumulativeBytes += inFlow.CumulativeBytes
+		} else {
+			outFlow.Type = FlowTypePublic
+			task.sumPublicOutFlow.Last2RateBits += outFlow.Last2RateBits
+			task.sumPublicOutFlow.Last10RateBits += outFlow.Last10RateBits
+			task.sumPublicOutFlow.Last40RateBits += outFlow.Last40RateBits
+			task.sumPublicOutFlow.CumulativeBytes += outFlow.CumulativeBytes
+
+			inFlow.Type = FlowTypePublic
+			task.sumPublicInFlow.Last2RateBits += inFlow.Last2RateBits
+			task.sumPublicInFlow.Last10RateBits += inFlow.Last10RateBits
+			task.sumPublicInFlow.Last40RateBits += inFlow.Last40RateBits
+			task.sumPublicInFlow.CumulativeBytes += inFlow.CumulativeBytes
 		}
 
 		if task.processingFlowStats != nil {
@@ -275,6 +357,14 @@ func (task *Task) processStdoutLine(line string) {
 			task.processingFlowStats.CumulativeSentBytes = parseValueToBits(words[0]) / 8
 			task.processingFlowStats.CumulativeRecvBytes = parseValueToBits(words[1]) / 8
 			task.processingFlowStats.CumulativeSentAndRecvBytes = parseValueToBits(words[2]) / 8
+
+			if len(task.processingFlowStats.Flows) > 0 {
+				task.processingFlowStats.Flows = append(task.processingFlowStats.Flows,
+					task.sumPrivateInFlow,
+					task.sumPrivateOutFlow,
+					task.sumPublicInFlow,
+					task.sumPublicOutFlow)
+			}
 		}
 
 		// Now, the process for this round finished, saving the flowStats.
