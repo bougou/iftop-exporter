@@ -26,7 +26,7 @@ type Manager struct {
 	dynamicDir           string
 	dynamicInterfaceInfo map[string]map[string]string // labels for each interfaceName
 
-	runPeriodically     bool
+	runPeriodic         bool
 	runPeriodicInterval time.Duration
 	runPeriodicDuration time.Duration
 
@@ -47,10 +47,10 @@ func NewManager(staticIntefaceNames []string, dynamic bool, dynamicDir string) (
 	return manager, nil
 }
 
-func (mgr *Manager) WithRunPeriodically(interval time.Duration, duration time.Duration) *Manager {
-	mgr.runPeriodically = true
-	mgr.runPeriodicInterval = interval
-	mgr.runPeriodicDuration = duration
+func (mgr *Manager) WithPeriodic(periodicInterval time.Duration, periodicDuration time.Duration) *Manager {
+	mgr.runPeriodic = true
+	mgr.runPeriodicInterval = periodicInterval
+	mgr.runPeriodicDuration = periodicDuration
 	return mgr
 }
 
@@ -205,12 +205,12 @@ func (mgr *Manager) exec(interfaceName string) error {
 	mgr.lock.Unlock()
 
 	go func() {
-		log.Printf("initial iftop task start (%s)", interfaceName)
+		mgr.Debugf("initial iftop task start (%s)", interfaceName)
 		err := iftopTask.Run()
 		if err != nil {
-			log.Printf("initial iftop task exit (%s), err: %s", interfaceName, err)
+			mgr.Debugf("initial iftop task exit (%s), err: %s", interfaceName, err)
 		} else {
-			log.Printf("initial iftop task exit (%s)", interfaceName)
+			mgr.Debugf("initial iftop task exit (%s)", interfaceName)
 		}
 		exitCh <- err
 	}()
@@ -219,16 +219,15 @@ func (mgr *Manager) exec(interfaceName string) error {
 		select {
 
 		case exitErr := <-exitCh:
-			if exitErr != nil {
-				log.Printf("iftop task exit (%s) with error (%s), wait periodic interval (%s) and start again", interfaceName, exitErr, mgr.runPeriodicInterval)
-			} else {
-				log.Printf("iftop task exit (%s), wait periodic interval (%s) and start again", interfaceName, mgr.runPeriodicInterval)
-			}
-
 			sleepSeconds := int(mgr.runPeriodicInterval.Seconds())
-			if !mgr.runPeriodically {
+			if !mgr.runPeriodic {
 				sleepSeconds = 2 // Just sleep 2 seconds for continuous mode
 			}
+
+			if exitErr != nil {
+				log.Printf("iftop task exit (%s) with error (%s), wait several seconds and start again", interfaceName, exitErr)
+			}
+
 			if err := mgr.startTask(interfaceName, removeCh, exitCh, sleepSeconds); err != nil {
 				log.Printf("start task failed, err: %s", err)
 			}
@@ -245,24 +244,25 @@ func (mgr *Manager) exec(interfaceName string) error {
 	}
 }
 
+// startTask waits for specified sleepSeconds and start iftop task for specified interface.
 func (mgr *Manager) startTask(interfaceName string, removeCh <-chan int, exitCh chan<- error, sleepSeconds int) error {
 	select {
 	case <-time.After(time.Duration(sleepSeconds) * time.Second):
 		go func() {
 			iftopTask := mgr.newIftopTask(interfaceName)
 
-			if !mgr.runPeriodically {
-				// continuous mode: update the cached iftop task before iftop task start
+			if !mgr.runPeriodic {
+				// for continuous mode: update the cached iftop task before iftop task run
 				mgr.lock.Lock()
 				mgr.tasks[interfaceName] = iftopTask
 				mgr.lock.Unlock()
 			}
 
-			log.Printf("iftop task start (%s)", interfaceName)
+			mgr.Debugf("iftop task start (%s)", interfaceName)
 			err := iftopTask.Run()
 
-			if mgr.runPeriodically {
-				// periodic mode: update the cached iftop task after iftop task start
+			if mgr.runPeriodic {
+				// for periodic mode: update the cached iftop task after iftop task exit
 				mgr.lock.Lock()
 				mgr.tasks[interfaceName] = iftopTask
 				mgr.lock.Unlock()
@@ -342,7 +342,7 @@ func (mgr *Manager) newIftopTask(interfaceName string) *iftop.Task {
 		SortBy:           iftop.SortBy2s,
 	}
 
-	if mgr.runPeriodically {
+	if mgr.runPeriodic {
 		options.SingleSeconds = int(mgr.runPeriodicDuration.Seconds())
 	}
 

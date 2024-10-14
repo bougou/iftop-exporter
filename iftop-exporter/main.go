@@ -88,7 +88,10 @@ func main() {
 			os.Exit(1)
 		}
 
-		iftopManager.WithRunPeriodically(*periodicInterval, *periodicDuration)
+		iftopManager.WithPeriodic(*periodicInterval, *periodicDuration)
+	} else {
+		log.Printf("periodic mode not enabled, warn: non-periodic mode should only be used with caution")
+
 	}
 
 	go iftopManager.Run()
