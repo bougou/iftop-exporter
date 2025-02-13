@@ -104,6 +104,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	// The loop would make sure the iftop-exporter-k8s-helper begin to execute its logic
+	// until the iftop-exporter Manager starts successfully.
+	// The iftop-exporter Manager would create the watching file when it starts successfully
+	// which means it is ready to watch fsnotify events from the dynamicDir.
 	for {
 		watchingFile := filepath.Join(dynamicDir, ".watching")
 		ok, err := checkFileExists(watchingFile)
