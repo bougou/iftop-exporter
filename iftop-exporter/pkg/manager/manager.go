@@ -26,9 +26,25 @@ type Manager struct {
 	dynamicDir           string
 	dynamicInterfaceInfo map[string]map[string]string // labels for each interfaceName
 
-	runPeriodic         bool
-	runPeriodicInterval time.Duration
-	runPeriodicDuration time.Duration
+	// continuous determines the execution mode of iftop tasks.
+	//
+	// Non-continuous mode (continuous=false, recommended):
+	//   - Each iftop process runs for a fixed duration then exits
+	//   - Manager waits for the specified interval before starting the next run
+	//   - Pattern: |---iftopDuration---|---sleepInterval---|---iftopDuration---|---sleepInterval---|
+	//   - Provides consistent sampling intervals and resource usage
+	//
+	// Continuous mode (continuous=true):
+	//   - Each iftop process runs until it exits (either successfully or due to failure)
+	//   - Manager waits for a short interval (2s) before restarting
+	//   - Pattern: |---iftop-------------------------------|---sleepInterval---|---iftop------------------------------|
+	//   - `duration` parameter is ignored in this mode
+	//   - Note, this mode may cause high CPU usage if the iftop process is unstable
+	continuous bool
+	// interval specifies the wait time between consecutive iftop runs
+	interval time.Duration
+	// duration specifies the duration of each iftop run
+	duration time.Duration
 
 	debug bool
 }
@@ -47,10 +63,10 @@ func NewManager(staticIntefaceNames []string, dynamic bool, dynamicDir string) (
 	return manager, nil
 }
 
-func (mgr *Manager) WithPeriodic(periodicInterval time.Duration, periodicDuration time.Duration) *Manager {
-	mgr.runPeriodic = true
-	mgr.runPeriodicInterval = periodicInterval
-	mgr.runPeriodicDuration = periodicDuration
+func (mgr *Manager) WithContinuous(continuous bool, interval time.Duration, duration time.Duration) *Manager {
+	mgr.continuous = continuous
+	mgr.interval = interval
+	mgr.duration = duration
 	return mgr
 }
 
@@ -197,6 +213,7 @@ func (mgr *Manager) exec(interfaceName string) error {
 		mgr.lock.Unlock()
 		return nil
 	}
+
 	iftopTask := mgr.newIftopTask(interfaceName)
 	removeCh := make(chan int)
 	exitCh := make(chan error)
@@ -210,7 +227,7 @@ func (mgr *Manager) exec(interfaceName string) error {
 		if err != nil {
 			mgr.Debugf("initial iftop task exit (%s), err: %s", interfaceName, err)
 		} else {
-			mgr.Debugf("initial iftop task exit (%s)", interfaceName)
+			mgr.Debugf("initial iftop task exit (%s) with no error", interfaceName)
 		}
 		exitCh <- err
 	}()
@@ -219,10 +236,7 @@ func (mgr *Manager) exec(interfaceName string) error {
 		select {
 
 		case exitErr := <-exitCh:
-			sleepSeconds := int(mgr.runPeriodicInterval.Seconds())
-			if !mgr.runPeriodic {
-				sleepSeconds = 2 // Just sleep 2 seconds for continuous mode
-			}
+			sleepSeconds := int(mgr.interval.Seconds())
 
 			if exitErr != nil {
 				log.Printf("iftop task exit (%s) with error (%s), wait several seconds and start again", interfaceName, exitErr)
@@ -251,8 +265,11 @@ func (mgr *Manager) startTask(interfaceName string, removeCh <-chan int, exitCh 
 		go func() {
 			iftopTask := mgr.newIftopTask(interfaceName)
 
-			if !mgr.runPeriodic {
-				// for continuous mode: update the cached iftop task before iftop task run
+			if mgr.continuous {
+				// In continuous mode, we must update the cached iftop task BEFORE running it.
+				// This is because the iftop task blocks during execution, and if we don't update
+				// the cache first, the updateMetricsLoop would continue using the old task's
+				// metrics until the new task completes.
 				mgr.lock.Lock()
 				mgr.tasks[interfaceName] = iftopTask
 				mgr.lock.Unlock()
@@ -261,8 +278,8 @@ func (mgr *Manager) startTask(interfaceName string, removeCh <-chan int, exitCh 
 			mgr.Debugf("iftop task start (%s)", interfaceName)
 			err := iftopTask.Run()
 
-			if mgr.runPeriodic {
-				// for periodic mode: update the cached iftop task after iftop task exit
+			if !mgr.continuous {
+				// In periodic mode, update the cached iftop task AFTER iftop task exit
 				mgr.lock.Lock()
 				mgr.tasks[interfaceName] = iftopTask
 				mgr.lock.Unlock()
@@ -342,8 +359,8 @@ func (mgr *Manager) newIftopTask(interfaceName string) *iftop.Task {
 		SortBy:           iftop.SortBy2s,
 	}
 
-	if mgr.runPeriodic {
-		options.SingleSeconds = int(mgr.runPeriodicDuration.Seconds())
+	if !mgr.continuous {
+		options.SingleSeconds = int(mgr.duration.Seconds())
 	}
 
 	return iftop.NewTask(options)

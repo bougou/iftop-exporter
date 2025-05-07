@@ -21,10 +21,10 @@ func main() {
 	interfaces := fs.String("interfaces", "", "interface names separated by comma")
 	dynamic := fs.Bool("dynamic", false, "dynamic mode")
 	dynamicDir := fs.String("dynamic-dir", "/var/lib/iftop-exporter/dynamic", "dynamic directory")
-	periodic := fs.Bool("periodic", false, "periodic mode")
-	periodicInterval := fs.Duration("periodic-interval", 10*time.Second, "periodic mode interval, and must not be less than 10 seconds")
-	periodicDuration := fs.Duration("periodic-duration", 3*time.Second,
-		"periodic mode duration, and must not be less than 3 seconds, and periodicDuration must be less than periodicInterval")
+	continuous := fs.Bool("continuous", false, "continuous mode")
+	interval := fs.Duration("interval", 10*time.Second, "interval between two iftop runs, and must not be less than 10 seconds")
+	duration := fs.Duration("duration", 3*time.Second,
+		"duration of each iftop run, and must not be less than 3 seconds, and duration must be less than interval")
 	version := fs.Bool("version", false, "print version")
 	debug := fs.Bool("debug", false, "debug mode")
 	help := fs.Bool("help", false, "print help")
@@ -69,31 +69,28 @@ func main() {
 	}
 
 	iftopManager.WithDebug(*debug)
+	log.Printf("iftop execution pattern: continuous=%t, interval=%s, duration=%s", *continuous, *interval, *duration)
 
-	if *periodic {
-		log.Printf("periodic mode enabled")
-
-		if *periodicInterval < 10*time.Second {
-			log.Printf("Err: periodic interval (%s) must not be less than 10 seconds", *periodicInterval)
-			os.Exit(1)
-		}
-
-		if *periodicDuration < 3*time.Second {
-			log.Printf("Err: periodic duration (%s) must not be less than 3 seconds", *periodicDuration)
-			os.Exit(1)
-		}
-
-		if *periodicDuration >= *periodicInterval {
-			log.Printf("Err: periodic duration (%s) must be less than interval (%s)", *periodicDuration, *periodicInterval)
-			os.Exit(1)
-		}
-
-		iftopManager.WithPeriodic(*periodicInterval, *periodicDuration)
+	if *continuous {
+		log.Printf("WARN: continuous mode enabled, this mode may cause high CPU usage")
 	} else {
-		log.Printf("periodic mode not enabled, warn: non-periodic mode should only be used with caution")
+		if *interval < 10*time.Second {
+			log.Printf("Err: interval (%s) must not be less than 10 seconds", *interval)
+			os.Exit(1)
+		}
 
+		if *duration < 3*time.Second {
+			log.Printf("Err: duration (%s) must not be less than 3 seconds", *duration)
+			os.Exit(1)
+		}
+
+		if *duration >= *interval {
+			log.Printf("Err: duration (%s) must be less than interval (%s)", *duration, *interval)
+			os.Exit(1)
+		}
 	}
 
+	iftopManager.WithContinuous(*continuous, *interval, *duration)
 	go iftopManager.Run()
 
 	http.Handle("/metrics", promhttp.Handler())

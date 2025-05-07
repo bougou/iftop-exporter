@@ -15,9 +15,13 @@ $ vim values.yaml
 exporter:
   port: "9999"
 
+  runPattern:
+    continuous: false
+    interval: 10s
+    duration: 4s
+
 helper:
-  # The selectors are used to filter out the pods that you want to monitor.
-  #
+
   # selectors:
   # - selector1Name:label1key,label2key==some-value
   # - selector2Name:label3key!=some-value,label4key==some-value
@@ -38,14 +42,14 @@ helper:
 
   manager:
     logLevel: 1
-    metricsPort: 8080
-    healthPort: 8081
+    metricsPort: 58080
+    healthPort: 58081
 
   # kube-rbac-proxy container
-  # would proxy 8443 port to manager metricsPort 8080
+  # would proxy 58443 port to manager metricsPort 58080
   proxy:
     enabled: true
-    port: 8443
+    port: 58443
 ```
 
 ```bash

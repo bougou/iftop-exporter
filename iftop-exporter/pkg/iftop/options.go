@@ -4,14 +4,14 @@ import "fmt"
 
 type Options struct {
 	InterfaceName        string
-	NoHostnameLookup     bool
-	NoPortConvert        bool
-	ShowPort             bool
-	SortBy               SortBy
-	ShowBandwidthInBytes bool
-	NumberOfLines        int
-	SingleSeconds        int
-	useTextMode          bool
+	NoHostnameLookup     bool   // don't do hostname lookups
+	NoPortConvert        bool   // don't convert port numbers to services
+	ShowPort             bool   // show ports as well as hosts
+	SortBy               SortBy // Sorting orders
+	ShowBandwidthInBytes bool   // Display bandwidth in bytes
+	NumberOfLines        int    // number of lines to print
+	SingleSeconds        int    // print one single text output afer num seconds, then quit
+	useTextMode          bool   // use text interface without ncurses
 }
 
 type SortBy string
@@ -61,14 +61,14 @@ func getArguments(options Options) []string {
 
 	if options.useTextMode {
 		arguments = append(arguments, "-t")
-	}
 
-	if options.NumberOfLines != 0 {
-		arguments = append(arguments, "-L", fmt.Sprintf("%d", options.NumberOfLines))
-	}
+		if options.NumberOfLines != 0 {
+			arguments = append(arguments, "-L", fmt.Sprintf("%d", options.NumberOfLines))
+		}
 
-	if options.SingleSeconds != 0 {
-		arguments = append(arguments, "-s", fmt.Sprintf("%d", options.SingleSeconds))
+		if options.SingleSeconds != 0 {
+			arguments = append(arguments, "-s", fmt.Sprintf("%d", options.SingleSeconds))
+		}
 	}
 
 	return arguments

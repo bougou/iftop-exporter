@@ -3,19 +3,17 @@ dynamicDir: /var/lib/iftop-exporter/dynamic
 exporter:
   image:
     name: bougou/iftop-exporter
-    tag: latest
+    tag: v1.0.4
+    pullPolicy: IfNotPresent
 
   port: "9999"
 
-  periodicMode:
-    enabled: true
+  runPattern:
+    continuous: false
     interval: 10s
     duration: 4s
 
 helper:
-  image:
-    name: bougou/iftop-exporter-k8s-helper
-    tag: latest
 
   # selectors:
   # - selector1Name:label1key,label2key==some-value
@@ -36,14 +34,22 @@ helper:
   selectors: []
 
   manager:
+    image:
+      name: bougou/iftop-exporter-k8s-helper
+      tag: v1.0.4
+      pullPolicy: IfNotPresent
     logLevel: 1
-    metricsPort: 8080
-    healthPort: 8081
+    metricsPort: 58080
+    healthPort: 58081
 
   # kube-rbac-proxy container
   proxy:
+    image:
+      name: gcr.io/kubebuilder/kube-rbac-proxy
+      tag: v0.13.1
+      pullPolicy: IfNotPresent
     enabled: true
-    port: 8443
+    port: 58443
 
 serviceMonitor:
   exporter:

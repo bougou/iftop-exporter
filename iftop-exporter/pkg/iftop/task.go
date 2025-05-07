@@ -32,6 +32,7 @@ type Log struct {
 }
 
 func NewTask(options Options) *Task {
+	// useTextMode should always be true
 	options.useTextMode = true
 
 	return &Task{

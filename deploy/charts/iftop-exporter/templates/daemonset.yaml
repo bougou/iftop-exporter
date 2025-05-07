@@ -23,11 +23,11 @@ spec:
         - "-dynamic"
         - "-dynamic-dir={{ .Values.dynamicDir }}"
         - "-addr=0.0.0.0:{{ .Values.exporter.port }}"
-        {{- if  .Values.exporter.periodicMode.enabled }}
-        - "-periodic"
-        - "-periodic-interval={{ .Values.exporter.periodicMode.interval }}"
-        - "-periodic-duration={{ .Values.exporter.periodicMode.duration }}"
+        {{- if .Values.exporter.runPattern.continuous }}
+        - "-continuous"
         {{- end }}
+        - "-interval={{ .Values.exporter.runPattern.interval }}"
+        - "-duration={{ .Values.exporter.runPattern.duration }}"
         image: {{ .Values.exporter.image.name }}:{{ .Values.exporter.image.tag }}
         name: iftop-exporter
         imagePullPolicy: IfNotPresent
@@ -78,9 +78,9 @@ spec:
         {{- range $selector := .Values.helper.selectors }}
         - "--selectors={{ $selector }}"
         {{- end }}
-        image: {{ .Values.helper.image.name }}:{{ .Values.helper.image.tag }}
+        image: {{ .Values.helper.manager.image.name }}:{{ .Values.helper.manager.image.tag }}
         name: manager
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{ .Values.helper.manager.image.pullPolicy }}
         securityContext:
           # allowPrivilegeEscalation: false
           # capabilities:
@@ -144,8 +144,8 @@ spec:
           capabilities:
             drop:
             - "ALL"
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
-        imagePullPolicy: IfNotPresent
+        image: {{ .Values.helper.proxy.image.name }}:{{ .Values.helper.proxy.image.tag }}
+        imagePullPolicy: {{ .Values.helper.proxy.image.pullPolicy }}
         args:
         - "--secure-listen-address=0.0.0.0:{{ .Values.helper.proxy.port }}"
         - "--upstream=http://127.0.0.1:{{ .Values.helper.manager.metricsPort }}/"

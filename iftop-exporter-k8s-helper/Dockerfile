@@ -2,8 +2,7 @@ FROM ubuntu:22.04 as base
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN true && \
-  apt-get update && \
-  apt-get -y upgrade && \
+  apt-get update -y && \
   apt-get install -y gpg locales unzip && \
   locale-gen zh_CN.UTF-8 && \
   apt-get install -y net-tools telnet wget curl vim && \
