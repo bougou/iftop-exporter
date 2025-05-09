@@ -25,6 +25,10 @@ github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/bougou/go-container-utils v0.0.0-20241009030444-4c43f4d8d148 h1:HOtxwv7Rr54/Ropg5vrteAzBNi+hssD1BQDI5MuJtBg=
 github.com/bougou/go-container-utils v0.0.0-20241009030444-4c43f4d8d148/go.mod h1:aBiZUu1Ld5WSbXch+L8raxPuesZwcOXZ1qDD/n9ME9E=
+github.com/bougou/go-container-utils v0.0.0-20250509101808-bf86b9b2d078 h1:eF3ZacLQ11BEVxDLEowTYuLQBe0N4iz2AZiZ9LYlyCc=
+github.com/bougou/go-container-utils v0.0.0-20250509101808-bf86b9b2d078/go.mod h1:aBiZUu1Ld5WSbXch+L8raxPuesZwcOXZ1qDD/n9ME9E=
+github.com/bougou/go-container-utils v0.0.0-20250509114611-b03c3ed0579a h1:eYvjCTfAhwBM2p2lLNuwvjo3YQohtNf9eK3n5gEL5YI=
+github.com/bougou/go-container-utils v0.0.0-20250509114611-b03c3ed0579a/go.mod h1:aBiZUu1Ld5WSbXch+L8raxPuesZwcOXZ1qDD/n9ME9E=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=

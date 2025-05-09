@@ -3,7 +3,7 @@ dynamicDir: /var/lib/iftop-exporter/dynamic
 exporter:
   image:
     name: bougou/iftop-exporter
-    tag: v1.0.4
+    tag: v0.1.4
     pullPolicy: IfNotPresent
 
   port: "9999"
@@ -36,7 +36,7 @@ helper:
   manager:
     image:
       name: bougou/iftop-exporter-k8s-helper
-      tag: v1.0.4
+      tag: v0.1.4  # should be kept same as the exporter tag
       pullPolicy: IfNotPresent
     logLevel: 1
     metricsPort: 58080

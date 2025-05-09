@@ -5,7 +5,7 @@ go 1.22.3
 replace github.com/bougou/iftop-exporter/iftop-exporter-k8s-helper v0.0.0 => ./
 
 require (
-	github.com/bougou/go-container-utils v0.0.0-20241009030444-4c43f4d8d148
+	github.com/bougou/go-container-utils v0.0.0-20250509114611-b03c3ed0579a
 	github.com/kr/pretty v0.3.1
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
