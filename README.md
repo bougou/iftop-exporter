@@ -1,6 +1,5 @@
 # iftop-exporter
 
-
 ## Deploy with Helm
 
 `iftop-exporter` is deployed as a DaemonSet with `hostNetwork=true` network mode in K8S environment.
@@ -53,6 +52,8 @@ helper:
 ```
 
 ```bash
-$ helm repo add iftop-exporter git+https://github.com/bougou/iftop-exporter@deploy/charts?ref=v0.1.0
-$ helm upgrade --install iftop-exporter -n kube-prometheus -f values.yaml iftop-exporter/iftop-exporter  --version=1.0.0
+$ helm repo add bougoucharts https://bougou.github.io/charts
+$ helm repo update
+
+$ helm upgrade --install iftop-exporter -n kube-prometheus -f values.yaml bougoucharts/iftop-exporter  --version=1.0.3
 ```

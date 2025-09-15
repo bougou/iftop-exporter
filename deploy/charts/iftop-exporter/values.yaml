@@ -3,7 +3,7 @@ dynamicDir: /var/lib/iftop-exporter/dynamic
 exporter:
   image:
     name: bougou/iftop-exporter
-    tag: v0.1.4
+    tag: v0.1.5
     pullPolicy: IfNotPresent
 
   port: "9999"
@@ -36,7 +36,7 @@ helper:
   manager:
     image:
       name: bougou/iftop-exporter-k8s-helper
-      tag: v0.1.4  # should be kept same as the exporter tag
+      # not tag here, it should be kept same as the exporter tag
       pullPolicy: IfNotPresent
     logLevel: 1
     metricsPort: 58080
@@ -50,6 +50,39 @@ helper:
       pullPolicy: IfNotPresent
     enabled: true
     port: 58443
+
+# DaemonSet configuration
+daemonset:
+  # Node selector for pod placement
+  nodeSelector: {}
+    # kubernetes.io/os: linux
+    # kubernetes.io/arch: amd64
+
+  # Tolerations for pod scheduling
+  tolerations: []
+    # - key: "node-role.kubernetes.io/control-plane"
+    #   operator: "Exists"
+    #   effect: "NoSchedule"
+    # - key: "node-role.kubernetes.io/master"
+    #   operator: "Exists"
+    #   effect: "NoSchedule"
+
+  # Affinity rules for pod scheduling
+  affinity: {}
+    # nodeAffinity:
+    #   requiredDuringSchedulingIgnoredDuringExecution:
+    #     nodeSelectorTerms:
+    #     - matchExpressions:
+    #       - key: kubernetes.io/os
+    #         operator: In
+    #         values:
+    #         - linux
+
+  # Update strategy for DaemonSet
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
 
 serviceMonitor:
   exporter:

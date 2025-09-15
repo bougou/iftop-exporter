@@ -6,6 +6,10 @@ metadata:
   labels:
     control-plane: iftop-exporter
 spec:
+  {{- if .Values.daemonset.updateStrategy }}
+  updateStrategy:
+    {{- toYaml .Values.daemonset.updateStrategy | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       control-plane: iftop-exporter
@@ -16,6 +20,18 @@ spec:
       labels:
         control-plane: iftop-exporter
     spec:
+      {{- if .Values.daemonset.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.daemonset.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.daemonset.tolerations }}
+      tolerations:
+        {{- toYaml .Values.daemonset.tolerations | nindent 8 }}
+      {{- end }}
+      {{- if .Values.daemonset.affinity }}
+      affinity:
+        {{- toYaml .Values.daemonset.affinity | nindent 8 }}
+      {{- end }}
       containers:
       - command:
         - /iftop-exporter
@@ -78,7 +94,7 @@ spec:
         {{- range $selector := .Values.helper.selectors }}
         - "--selectors={{ $selector }}"
         {{- end }}
-        image: {{ .Values.helper.manager.image.name }}:{{ .Values.helper.manager.image.tag }}
+        image: {{ .Values.helper.manager.image.name }}:{{ .Values.exporter.image.tag }}
         name: manager
         imagePullPolicy: {{ .Values.helper.manager.image.pullPolicy }}
         securityContext:
