@@ -3,53 +3,64 @@ name: Release iftop-exporter-k8s-helper
 on:
   push:
     branches:
-    - "main"
+      - main
     tags:
-    - "v*"
+      - "v*"
+    paths:
+      - "iftop-exporter-k8s-helper/**"
+      - ".github/workflows/iftop-exporter-k8s-helper.yaml"
+
+concurrency:
+  group: iftop-exporter-k8s-helper-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   docker-release:
-    name: docker release
+    name: Docker Release
     runs-on: ubuntu-latest
 
     steps:
-    - uses: AutoModality/action-clean@v1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-    - name: set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: docker login
-      uses: docker/login-action@v3
-      with:
-        # registry: ${{ secrets.DOCKERHUB_ADDR }}
-        username: ${{ secrets.DOCKERHUB_USER }}
-        password: ${{ secrets.DOCKERHUB_PASS }}
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_PASS }}
 
-    - name: prepare short tag
-      id: prepare_short_tag
-      run: |
-        SHORT_TAG=`git describe --abbrev=5 --dirty --tags --always`
-        echo "image_short_tag=$SHORT_TAG" >> "$GITHUB_OUTPUT"
-        echo "::notice title=Build Image Short Tag::$SHORT_TAG"
+      - name: Prepare image tags
+        id: tags
+        run: |
+          SHORT_TAG=$(git describe --abbrev=5 --dirty --tags --always)
+          TIME_TAG=$(TZ=UTC date +"%y%m%d%H%M%S")
+          COMMIT_TAG=${GITHUB_SHA::7}
+          IMAGE_TAG="${TIME_TAG}-${COMMIT_TAG}"
+          {
+            echo "short_tag=${SHORT_TAG}"
+            echo "image_tag=${IMAGE_TAG}"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice title=Image tags::latest, ${IMAGE_TAG}, ${SHORT_TAG}"
 
-    - name: prepare tag
-      id: prepare_tag
-      run: |
-        TIME_TAG=`TZ=Zero date +"%y%m%d%H%M%S"`
-        COMMIT_TAG=`echo $GITHUB_SHA | cut -c 1-7`
-        TAG="$TIME_TAG-$COMMIT_TAG"
-        echo "image_tag=$TAG" >> "$GITHUB_OUTPUT"
-        echo "::notice title=Build Image Tag::$TAG"
-
-    - name: build and push
-      uses: docker/build-push-action@v6
-      with:
-        push: true
-        context: ./iftop-exporter-k8s-helper
-        platforms: linux/amd64,linux/arm64
-        tags: |
-          bougou/iftop-exporter-k8s-helper:latest
-          bougou/iftop-exporter-k8s-helper:${{ steps.prepare_tag.outputs.image_tag }}
-          bougou/iftop-exporter-k8s-helper:${{ steps.prepare_short_tag.outputs.image_short_tag }}
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./iftop-exporter-k8s-helper
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            bougou/iftop-exporter-k8s-helper:latest
+            bougou/iftop-exporter-k8s-helper:${{ steps.tags.outputs.image_tag }}
+            bougou/iftop-exporter-k8s-helper:${{ steps.tags.outputs.short_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

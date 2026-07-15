@@ -1,8 +1,6 @@
 module github.com/bougou/iftop-exporter/iftop-exporter-k8s-helper
 
-go 1.22.3
-
-replace github.com/bougou/iftop-exporter/iftop-exporter-k8s-helper v0.0.0 => ./
+go 1.26.0
 
 require (
 	github.com/bougou/go-container-utils v0.0.0-20250509114611-b03c3ed0579a

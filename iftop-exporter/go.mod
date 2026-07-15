@@ -1,8 +1,6 @@
 module github.com/bougou/iftop-exporter/iftop-exporter
 
-go 1.22
-
-replace github.com/bougou/iftop-exporter/iftop-exporter v0.0.0 => ./
+go 1.26.0
 
 require (
 	github.com/bougou/go-unit v0.1.0

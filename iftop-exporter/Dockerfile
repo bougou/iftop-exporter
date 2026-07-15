@@ -1,4 +1,4 @@
-FROM ubuntu:22.04 as base
+FROM ubuntu:22.04 AS base
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN true && \
@@ -9,13 +9,13 @@ RUN true && \
   apt-get clean && rm -rf /var/lib/apt/lists/* && \
   true
 
-ENV TERM xterm
-ENV LANG zh_CN.UTF-8
-ENV LANGUAGE zh_CN:en
-ENV LC_ALL zh_CN.UTF-8
+ENV TERM=xterm
+ENV LANG=zh_CN.UTF-8
+ENV LANGUAGE=zh_CN:en
+ENV LC_ALL=zh_CN.UTF-8
 
 
-FROM golang:1.22 as builder
+FROM golang:1.26 AS builder
 COPY / /src
 RUN cd /src \
   && make build \
